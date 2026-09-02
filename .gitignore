@@ -12,7 +12,6 @@ __pycache__/
 .ruff_cache/
 data/*.db
 data/*.db-*
-storage/jobs/*
 !storage/jobs/.gitkeep
 *.zip
 *.tmp
