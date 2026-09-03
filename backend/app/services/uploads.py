@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import io
@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models import ImageAsset, ImageStatus, Job
 from app.schemas.api import ProcessingSettings
-from app.storage.local import LocalStorage
+from app.services.jobs import resolve_job_dirname
+from app.storage.local import LocalStorage, sanitize_stem
 
 
 FORMAT_MIME = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
@@ -58,8 +59,13 @@ async def store_upload(db: Session, job: Job, upload: UploadFile, storage: Local
 
     image_id = str(uuid.uuid4())
     extension = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}[image_format]
-    stored_filename = f"{image_id}{extension}"
-    root = storage.ensure_job(job.id)
+    original_name = Path(upload.filename or "image").name[:512]
+    # Files keep the original name plus a short unique suffix, e.g. "t1--a94f2c10.jpg",
+    # so outputs are recognizable when browsing the storage folder directly.
+    file_stem = sanitize_stem(original_name, max_length=40)
+    stored_filename = f"{file_stem}--{image_id[:8]}{extension}"
+    dirname = resolve_job_dirname(db, job, storage, filename_hint=original_name)
+    root = storage.ensure_job(dirname)
     target = root / "original" / stored_filename
     target.write_bytes(payload)
     relative = storage.relative(target)
@@ -68,7 +74,7 @@ async def store_upload(db: Session, job: Job, upload: UploadFile, storage: Local
     asset = ImageAsset(
         id=image_id,
         job_id=job.id,
-        original_filename=Path(upload.filename or "image").name[:512],
+        original_filename=original_name,
         stored_filename=stored_filename,
         original_path=relative,
         width=width,
@@ -80,4 +86,3 @@ async def store_upload(db: Session, job: Job, upload: UploadFile, storage: Local
     )
     db.add(asset)
     return asset
-

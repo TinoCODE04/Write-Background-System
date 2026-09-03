@@ -61,7 +61,7 @@ frontend/
   app/                  /、/jobs/[id]、/images/[id]、/settings
   components/ features/ lib/ stores/ types/
 data/app.db
-storage/jobs/{job_id}/{original,masks,transparent,white_png,white_jpg,thumbnails}
+storage/jobs/{原始文件名--job前8位}/{original,masks,transparent,white_png,white_jpg,thumbnails}
 scripts/                Windows PowerShell 启动脚本
 ```
 
@@ -174,7 +174,7 @@ SQLite 使用 WAL、foreign keys 和 busy timeout，并为队列与 job/status �
 
 ## Storage
 
-每个任务位于 `storage/jobs/{job_id}/`。`original/` 永久保存上传原图；生成文件分别写入 `masks/`、`transparent/`、`white_png/`、`white_jpg/` 和 `thumbnails/`。磁盘文件使用 UUID，数据库保留原始文件名。所有下载路径都在解析后检查必须位于 Storage 根目录内。
+每个任务位于 `storage/jobs/{原始文件名--job前8位}/`（例如 `t1--32577466`），文件夹名在第一次上传时按该批次第一张图确定，之后不再改变，方便直接在资源管理器中辨认。文件夹内的文件同样保留原始文件名并追加图片 ID 前缀（例如 `original/微信图片_xxx--a1b2c3d4.jpg`），批次的所有输出（`masks/`、`transparent/`、`white_png/`、`white_jpg/`、`thumbnails/`）共用同一可读文件名。早期版本创建的纯 UUID 文件夹继续有效（所有路径都以相对路径存储在数据库中，与文件夹命名无关）。`original/` 永久保存上传原图且永不覆盖；数据库保留完整原始文件名。所有下载路径都在解析后检查必须位于 Storage 根目录内。
 
 ## 测试与构建
 

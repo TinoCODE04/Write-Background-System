@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter
 from datetime import UTC, datetime
@@ -7,6 +7,27 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import ImageAsset, ImageStatus, Job, JobStatus
+from app.storage.local import LocalStorage, sanitize_stem
+
+
+def resolve_job_dirname(db: Session, job: Job, storage: LocalStorage, filename_hint: str | None = None) -> str:
+    """Human-readable job folder: ``{first image name}--{job id prefix}``.
+
+    The name is fixed when the first image is uploaded and never renamed, so the
+    folder stays recognizable in Explorer. Folders created by older versions used
+    the bare job UUID; those are detected on disk and keep working, because every
+    asset path is stored in the database as a relative path anyway.
+    """
+    if (storage.jobs_root / job.id).is_dir():
+        return job.id
+    earliest = db.scalar(
+        select(ImageAsset.original_filename)
+        .where(ImageAsset.job_id == job.id)
+        .order_by(ImageAsset.created_at, ImageAsset.id)
+        .limit(1)
+    )
+    stem = sanitize_stem(earliest or filename_hint or job.name, max_length=60, fallback="job")
+    return f"{stem}--{job.id[:8]}"
 
 
 def refresh_job_counters(db: Session, job_id: str) -> Job:

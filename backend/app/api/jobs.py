@@ -30,7 +30,8 @@ def create_job(payload: JobCreate, db: Session = Depends(get_db)) -> Job:
     db.add(job)
     db.commit()
     db.refresh(job)
-    LocalStorage().ensure_job(job.id)
+    # The storage folder is created lazily on first upload so it can be named
+    # after the original filename instead of the bare job UUID.
     return job
 
 

@@ -36,10 +36,31 @@ def test_multi_image_upload_and_storage_paths(client, png_bytes):
     body = response.json()
     assert len(body["uploaded"]) == 2
     assert all(item["mime_type"] == "image/png" for item in body["uploaded"])
+    # The job folder is named after the first uploaded file ("first--{id prefix}")
+    # so batches stay recognizable when browsing the storage directory directly.
+    jobs_root = Path(get_settings().storage_path) / "jobs"
+    (job_dir,) = [path for path in jobs_root.iterdir() if path.name.endswith(f"--{job['id'][:8]}")]
+    assert job_dir.name.startswith("first--")
     for item in body["uploaded"]:
-        original = Path(get_settings().storage_path) / "jobs" / job["id"] / "original"
-        assert any(path.name.startswith(item["id"]) for path in original.iterdir())
+        stem = Path(item["original_filename"]).stem
+        original = job_dir / "original"
+        assert any(path.name.startswith(f"{stem}--") for path in original.iterdir())
         assert ".." not in item["original_filename"]
+
+
+def test_upload_keeps_chinese_filename_readable(client, png_bytes):
+    job = create_job(client)
+    response = client.post(
+        f"/api/jobs/{job['id']}/images",
+        files=[("files", ("微信图片_20260902.jpg", png_bytes, "image/jpeg"))],
+    )
+    assert response.status_code == 201
+    jobs_root = Path(get_settings().storage_path) / "jobs"
+    (job_dir,) = [path for path in jobs_root.iterdir() if path.name.endswith(f"--{job['id'][:8]}")]
+    assert job_dir.name.startswith("微信图片_20260902--")
+    names = [path.name for path in (job_dir / "original").iterdir()]
+    # The stored extension follows the detected content (PNG), not the claimed suffix.
+    assert any(name.startswith("微信图片_20260902--") and name.endswith(".png") for name in names)
 
 
 def test_invalid_and_corrupt_images_are_rejected(client):

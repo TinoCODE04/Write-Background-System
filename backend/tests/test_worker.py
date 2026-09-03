@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import uuid
 
+from PIL import Image
+
+from app.ai.pipeline.image_pipeline import PipelineResult
 from app.models import ImageAsset, ImageStatus, Job
-from app.storage.local import LocalStorage
+from app.services.jobs import resolve_job_dirname
+from app.storage.local import LocalStorage, sanitize_stem
 from app.workers.image_worker import claim_next_task, process_asset
 
 
@@ -30,6 +34,56 @@ def test_worker_task_claim_is_conditional(db):
     assert claimed is not None and claimed.id == asset.id
     assert claimed.status == ImageStatus.PROCESSING.value
     assert claim_next_task(db) is None
+
+
+class FakePipeline:
+    class Model:
+        @staticmethod
+        def get_model_name(): return "fake-test"
+        @staticmethod
+        def get_model_version(): return "1"
+    model = Model()
+    device = "cpu"
+
+    @staticmethod
+    def process(original, output_root, stem, settings):
+        paths = {}
+        for sub, ext in (("masks", "png"), ("transparent", "png"), ("white_png", "png"), ("white_jpg", "jpg"), ("thumbnails", "jpg")):
+            target = output_root / sub / f"{stem}.{ext}"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (4, 4), "white").save(target)
+            paths[sub] = target
+        return PipelineResult(paths["masks"], paths["transparent"], paths["white_png"], paths["white_jpg"], paths["thumbnails"], 99.0, [], 5, 20, 20)
+
+
+def make_readable_asset(db, name: str = "微信图片_测试.jpg") -> ImageAsset:
+    job = Job(name="Readable test")
+    db.add(job); db.flush()
+    storage = LocalStorage()
+    image_id = str(uuid.uuid4())
+    dirname = resolve_job_dirname(db, job, storage, filename_hint=name)
+    root = storage.ensure_job(dirname)
+    stored = f"{sanitize_stem(name, max_length=40)}--{image_id[:8]}.png"
+    original = root / "original" / stored
+    Image.new("RGB", (20, 20), "white").save(original)
+    asset = ImageAsset(
+        id=image_id, job_id=job.id, original_filename=name, stored_filename=stored,
+        original_path=storage.relative(original), width=20, height=20, file_size=original.stat().st_size,
+        mime_type="image/png", status=ImageStatus.QUEUED.value, processing_settings={},
+    )
+    db.add(asset); db.commit()
+    return asset
+
+
+def test_worker_writes_readable_output_names(db):
+    asset = make_readable_asset(db)
+    process_asset(db, asset, FakePipeline(), LocalStorage())  # type: ignore[arg-type]
+    db.refresh(asset)
+    assert asset.status == ImageStatus.COMPLETED.value
+    transparent = LocalStorage().resolve(asset.transparent_path)
+    assert transparent.is_file()
+    assert transparent.parent.parent.name.startswith("微信图片_测试--")
+    assert transparent.name.startswith("微信图片_测试--")
 
 
 class FailingPipeline:

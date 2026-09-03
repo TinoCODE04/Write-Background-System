@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -13,8 +14,8 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db import SessionLocal
 from app.db.session import initialize_database
-from app.models import ImageAsset, ImageStatus
-from app.services.jobs import refresh_job_counters
+from app.models import ImageAsset, ImageStatus, Job
+from app.services.jobs import refresh_job_counters, resolve_job_dirname
 from app.storage.local import LocalStorage
 
 
@@ -64,8 +65,13 @@ def process_asset(db: Session, asset: ImageAsset, pipeline: ImageProcessingPipel
     settings = get_settings()
     try:
         original = storage.resolve(asset.original_path)
-        output_root = storage.ensure_job(asset.job_id)
-        result = pipeline.process(original, output_root, asset.id, asset.processing_settings)
+        job = db.get(Job, asset.job_id)
+        dirname = resolve_job_dirname(db, job, storage) if job else asset.job_id
+        output_root = storage.ensure_job(dirname)
+        # Outputs share the readable stem of the stored original ("name--a94f2c10")
+        # instead of the bare image UUID; legacy UUID-named assets are unaffected.
+        stem = Path(asset.stored_filename).stem
+        result = pipeline.process(original, output_root, stem, asset.processing_settings)
         asset.mask_path = storage.relative(result.mask_path)
         asset.transparent_path = storage.relative(result.transparent_path)
         asset.white_png_path = storage.relative(result.white_png_path)
