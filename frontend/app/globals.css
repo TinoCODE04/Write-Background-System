@@ -7,9 +7,25 @@
   --muted: 102 116 108;
   --paper: 250 251 248;
   --surface: 255 255 252;
+  --fog: 243 245 241;
   --line: 222 228 221;
   --brand: 47 107 79;
   --accent: 201 244 91;
+  --check: 231 233 229;
+  --glow: 0.17;
+}
+
+[data-theme="dark"] {
+  --ink: 232 238 233;
+  --muted: 148 163 154;
+  --paper: 15 20 17;
+  --surface: 27 33 29;
+  --fog: 35 42 37;
+  --line: 54 63 56;
+  --brand: 125 196 157;
+  --accent: 201 244 91;
+  --check: 42 50 44;
+  --glow: 0.06;
 }
 
 * { box-sizing: border-box; }
@@ -18,26 +34,26 @@ body {
   margin: 0;
   color: rgb(var(--ink));
   background:
-    radial-gradient(circle at 76% -10%, rgba(201,244,91,.17), transparent 30rem),
+    radial-gradient(circle at 76% -10%, rgb(var(--accent) / var(--glow)), transparent 30rem),
     rgb(var(--paper));
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   min-height: 100vh;
 }
 button, input, select { font: inherit; }
 a { color: inherit; text-decoration: none; }
-::selection { background: rgba(201,244,91,.75); color: #17221d; }
+::selection { background: rgb(var(--accent) / 0.75); color: rgb(var(--ink)); }
 
 .checkerboard {
-  background-color: #fff;
-  background-image: linear-gradient(45deg,#e7e9e5 25%,transparent 25%),linear-gradient(-45deg,#e7e9e5 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e7e9e5 75%),linear-gradient(-45deg,transparent 75%,#e7e9e5 75%);
+  background-color: rgb(var(--surface));
+  background-image: linear-gradient(45deg,rgb(var(--check)) 25%,transparent 25%),linear-gradient(-45deg,rgb(var(--check)) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,rgb(var(--check)) 75%),linear-gradient(-45deg,transparent 75%,rgb(var(--check)) 75%);
   background-size: 20px 20px;
   background-position: 0 0,0 10px,10px -10px,-10px 0;
 }
 
 .surface { @apply rounded-2xl border border-black/[0.07] bg-white/90 shadow-soft; }
+[data-theme="dark"] .surface { @apply border-white/[0.08]; }
 .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-moss; }
-.focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-2; }
+.focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-2; --tw-ring-offset-color: rgb(var(--surface)); }
 
 @keyframes pulse-line { 0%,100% { opacity:.45 } 50% { opacity:1 } }
 .processing-glow { animation: pulse-line 1.6s ease-in-out infinite; }
-

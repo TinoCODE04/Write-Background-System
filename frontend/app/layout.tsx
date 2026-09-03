@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Aperture, Settings } from "lucide-react";
+import { ClientShell } from "@/components/client-shell";
 import { ToastViewport } from "@/components/toast-viewport";
+import { PREFERENCES_STORAGE_KEY } from "@/stores/preferences";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,28 +9,48 @@ export const metadata: Metadata = {
   description: "Batch background removal and quality control for e-commerce product imagery.",
 };
 
+// Applies the persisted theme before first paint to avoid a flash of the wrong theme.
+const themeInitScript = `
+try {
+  var stored = JSON.parse(localStorage.getItem(${JSON.stringify(PREFERENCES_STORAGE_KEY)}) || "{}");
+  var state = stored.state || {};
+  var theme = state.theme || "light";
+  document.documentElement.dataset.theme = theme;
+  if (theme === "custom") {
+    var c = state.custom || {};
+    var hex = function (value, fallback) {
+      var v = /^#?[0-9a-fA-F]{6}$/.test(value || "") ? String(value).replace("#", "") : fallback;
+      return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)];
+    };
+    var mix = function (a, b, t) {
+      return a.map(function (channel, i) { return Math.round(channel + (b[i] - channel) * t); }).join(" ");
+    };
+    var ink = hex(c.ink, "17221d"), paper = hex(c.paper, "fafbf8"), surface = hex(c.surface, "fffffc");
+    var vars = {
+      "--ink": ink.join(" "),
+      "--muted": mix(ink, paper, 0.55),
+      "--paper": paper.join(" "),
+      "--surface": surface.join(" "),
+      "--fog": mix(surface, ink, 0.045),
+      "--line": mix(surface, ink, 0.14),
+      "--brand": hex(c.brand, "2f6b4f").join(" "),
+      "--accent": hex(c.accent, "c9f45b").join(" "),
+      "--check": mix(surface, ink, 0.09),
+      "--glow": "0.15"
+    };
+    for (var key in vars) document.documentElement.style.setProperty(key, vars[key]);
+  }
+} catch (error) {}
+`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <header className="border-b border-black/[0.06] bg-white/75 backdrop-blur-xl">
-          <div className="mx-auto flex h-16 max-w-[1520px] items-center justify-between px-5 lg:px-8">
-            <Link href="/" className="focus-ring flex items-center gap-3 rounded-lg">
-              <span className="grid size-9 place-items-center rounded-xl bg-ink text-lime"><Aperture size={19} /></span>
-              <span>
-                <span className="block text-sm font-semibold leading-tight">AI Product Image Cleaner</span>
-                <span className="block text-[10px] font-medium uppercase tracking-[.14em] text-black/45">Production workspace</span>
-              </span>
-            </Link>
-            <Link href="/settings" className="focus-ring flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-black/60 hover:bg-black/5 hover:text-ink">
-              <Settings size={17} /> Settings
-            </Link>
-          </div>
-        </header>
-        <main className="mx-auto max-w-[1520px] px-5 py-8 lg:px-8 lg:py-10">{children}</main>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ClientShell>{children}</ClientShell>
         <ToastViewport />
       </body>
     </html>
   );
 }
-

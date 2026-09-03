@@ -1,3 +1,5 @@
+"use client";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { ImageStatus } from "@/types/api";
 
@@ -7,6 +9,6 @@ const styles: Record<string, string> = {
   QUEUED: "bg-slate-100 text-slate-600 ring-slate-600/10", UPLOADED: "bg-violet-50 text-violet-700 ring-violet-600/15"
 };
 export function StatusBadge({ status }: { status: ImageStatus | string }) {
-  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[.08em] ring-1 ring-inset", styles[status] ?? styles.QUEUED)}>{status.replace("_", " ")}</span>;
+  const { t } = useT();
+  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[.08em] ring-1 ring-inset", styles[status] ?? styles.QUEUED)}>{t(`status.${status}`)}</span>;
 }
-
